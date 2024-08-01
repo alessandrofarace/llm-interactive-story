@@ -9,7 +9,11 @@ with open(
     "r",
     encoding="utf-8",
 ) as f:
-    config = json.load(f)
+    openai_config = json.load(f)
 
-openai_config = config["openai_config"]
-completion_params = config["completion_params"]
+with open(
+    "/Users/al.farace/Projects/llm-interactive-story/config_local.json",
+    "r",
+    encoding="utf-8",
+) as f:
+    local_config = json.load(f)
