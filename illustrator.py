@@ -1,6 +1,18 @@
+from base64 import b64encode
+
 import openai
 
 from config import local_config, openai_config
+
+
+class MockIllustrator:
+    def create_picture(self, protagonist_description: str, scene: str) -> str:
+        image_path = (
+            "/Users/al.farace/Projects/llm-interactive-story/images/protagonist.png"
+        )
+        with open(image_path, "rb") as png:
+            image_data = png.read()
+        return b64encode(image_data)
 
 
 class Dalle3Illustrator:
@@ -70,7 +82,7 @@ You MUST ouptut only the prompt. Do NOT add any comment or explanation.
         model_response = completion.choices[0].message.content
         return model_response
 
-    def create_picture(self, protagonist_description: str, scene: str) -> None:
+    def create_picture(self, protagonist_description: str, scene: str) -> str:
         prompt = self.describe_picture(
             protagonist_description=protagonist_description,
             scene=scene,

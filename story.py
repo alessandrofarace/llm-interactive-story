@@ -42,3 +42,9 @@ class OpenEndedStory(Story):
         if possible_continuations is None:
             possible_continuations = []
         self.possible_continuations = possible_continuations
+
+    def add_continuation(self, text: str = None, image: Path = None) -> None:
+        self.possible_continuations.append(Chapter(text=text, image=image))
+
+    def reset_continuations(self) -> None:
+        self.possible_continuations = []

@@ -1,7 +1,11 @@
+import logging
+
 import json_repair
 import openai
 
 from config import local_config
+
+logger = logging.getLogger(__name__)
 
 
 class LLMStoryteller:
@@ -47,9 +51,10 @@ You only answer in {language}.
             **local_config["completion_params"],
         )
         model_response = completion.choices[0].message.content
+        logger.info("story starts: %s", model_response)
         return model_response
 
-    def propose_alternatives(
+    def propose_continuation(
         self,
         story_so_far: str,
         n_alternatives: int = 2,
@@ -61,9 +66,8 @@ You only answer in {language}.
 # Task:
 * Propose {n_alternatives} and only {n_alternatives} alternative ways in which the story could continue.
 * Keep each alternative as a short sentence of the form <PROTAGONIST><ACTION><DETAILS>.
-* After three of four chapters, you MUST propose alternatives
-that complete the protagonist's mission and converge to a conclusion.
-* Output the {n_alternatives} alternatives in JSON, with numbers as keys and text as values.
+* After three of four chapters, you MUST propose alternatives that complete the protagonist's mission and converge to a conclusion.
+* Output the {n_alternatives} alternatives as a JSON dictionary, with numbers as keys and text as values (no list around the dictionary).
 * You MUST NOT output any comment, explanation or additional content.
 """
         message_history = [
@@ -82,7 +86,7 @@ that complete the protagonist's mission and converge to a conclusion.
             **local_config["completion_params"],
         )
         model_response = completion.choices[0].message.content
-        print(model_response)
+        logger.info("possible continuations: %s", model_response)
         alternatives_dict = json_repair.loads(model_response)
         alternatives = list(alternatives_dict.values())
         return alternatives
@@ -96,6 +100,7 @@ that complete the protagonist's mission and converge to a conclusion.
 * Continue the story expanding on the following idea: {next_step}.
 * Do not progress the story too far.
 """
+        logger.info("Creating new chapter from idea %s", next_step)
         message_history = [
             {"role": "system", "content": self.system_prompt},
             {
@@ -111,6 +116,7 @@ that complete the protagonist's mission and converge to a conclusion.
             **local_config["completion_params"],
         )
         model_response = completion.choices[0].message.content
+        logger.info("story continues: %s", model_response)
         return model_response
 
     def describe_protagonist(self, story_so_far: str) -> str:
@@ -140,4 +146,5 @@ Just for this instruction, you MUST answer in English.
             **local_config["completion_params"],
         )
         model_response = completion.choices[0].message.content
+        logger.info("protagonist description: %s", model_response)
         return model_response
