@@ -8,7 +8,7 @@ from base64 import b64decode
 
 import streamlit as st
 
-from illustrator import SD15HyperLocalIllustrator
+from illustrator import SDXLLightningLocalIllustrator
 from story import OpenEndedStory
 from storyteller import LLMStoryteller
 
@@ -36,7 +36,7 @@ N_ALTERNATIVES = 2
 def start_story():
     st.session_state.story = OpenEndedStory()
     st.session_state.storyteller = LLMStoryteller(language=st.session_state.language)
-    st.session_state.illustrator = SD15HyperLocalIllustrator()
+    st.session_state.illustrator = SDXLLightningLocalIllustrator()
     story_start = st.session_state.storyteller.start_story()
     st.session_state.story.add_chapter(text=story_start)
     st.session_state.story.protagonist_description = (

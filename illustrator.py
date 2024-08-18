@@ -1,5 +1,8 @@
+import base64
 import logging
+import random
 from base64 import b64encode
+from io import BytesIO
 
 import openai
 
@@ -18,16 +21,146 @@ class MockIllustrator:
         return b64encode(image_data)
 
 
-class SD15HyperLocalIllustrator:
+class LocalDiffusersIllustrator:
+
+    style = None
+    width = None
+    height = None
+    n_steps = None
+
+    def __init__(self):
+        self.seed = random.randint(1, 1000000)
+
+    def describe_picture(self, protagonist_description, scene):
+        raise NotImplementedError
+
+    def get_pipeline(self):
+        raise NotImplementedError
+
+    def create_picture(self, protagonist_description: str, scene: str) -> str:
+
+        import torch
+
+        device = "mps"
+
+        inp = {
+            "short_name": "img",
+            "prompt": self.describe_picture(
+                protagonist_description=protagonist_description,
+                scene=scene,
+            )
+            + f", {self.style}",
+            "width": self.width,
+            "height": self.height,
+            "n_steps": self.n_steps,
+            "seed": self.seed,
+        }
+
+        pipe = self.get_pipeline()
+        pipe.to(device)
+
+        generator = [torch.Generator(device).manual_seed(inp["seed"])]
+
+        image = pipe(
+            prompt=inp["prompt"],
+            generator=generator,
+            num_inference_steps=inp["n_steps"],
+            guidance_scale=0.2,
+            width=inp["width"],
+            height=inp["height"],
+        ).images[0]
+
+        buffered = BytesIO()
+        image.save(buffered, format="png")
+        img_str = base64.b64encode(buffered.getvalue())
+        del pipe
+        return img_str
+
+
+class SDXLLightningLocalIllustrator(LocalDiffusersIllustrator):
+    llm_client = openai.OpenAI(**local_config["openai_client_config"])
+    system_prompt = """
+Your task is to create a precise prompt for generating a picture with stable diffusion xl.
+Create a description as precise as possible, in the best format for stable diffusion xl.
+You MUST include a few physical descriptors and a short description of the scene.
+Output the prompt as a a comma separated list of minimal sentences.
+Limit the output length to around 50 tokens.
+You MUST follow the instructions given, without adding any unrequired information.
+"""
+    style = "digital painting, cartoon, pastel colors, best quality"
+    width = 1024
+    height = 1024
+    n_steps = 4
+
+    def describe_picture(self, protagonist_description: str, scene: str) -> str:
+        describe_picture_prompt = """
+# Protagonist:
+{protagonist_description}
+
+# Scene:
+{scene}
+
+# Task
+Create a schematic prompt by combining the character and the scene.
+Use only the information provided above. You can add style attributes, but do NOT invent other elements.
+
+You MUST ouptut only the prompt. Do NOT add any comment or explanation.
+"""
+        message_history = [
+            {"role": "system", "content": self.system_prompt},
+            {
+                "name": "user",
+                "role": "user",
+                "content": describe_picture_prompt.format(
+                    protagonist_description=protagonist_description,
+                    scene=scene,
+                ),
+            },
+        ]
+        completion = self.llm_client.chat.completions.create(
+            messages=message_history,
+            **local_config["completion_params"],
+        )
+        model_response = completion.choices[0].message.content
+        logger.info("prompt for image generation: %s", model_response)
+        return model_response
+
+    def get_pipeline(self):
+        import torch
+        from diffusers import EulerDiscreteScheduler, StableDiffusionXLPipeline
+        from huggingface_hub import hf_hub_download
+
+        base = "stabilityai/stable-diffusion-xl-base-1.0"
+        repo = "ByteDance/SDXL-Lightning"
+        ckpt = "sdxl_lightning_4step_lora.safetensors"
+        pipe = StableDiffusionXLPipeline.from_pretrained(
+            base,
+            torch_dtype=torch.float16,
+            variant="fp16",
+        )
+        pipe.load_lora_weights(hf_hub_download(repo, ckpt))
+        pipe.fuse_lora()
+        pipe.scheduler = EulerDiscreteScheduler.from_config(
+            pipe.scheduler.config,
+            timestep_spacing="trailing",
+        )
+        return pipe
+
+
+class SD15HyperLocalIllustrator(LocalDiffusersIllustrator):
     llm_client = openai.OpenAI(**local_config["openai_client_config"])
     system_prompt = """
 Your task is to create a precise prompt for generating a picture with stable diffusion 1.5.
 Create a description as precise as possible, in the best format for stable diffusion 1.5.
-You MUST include EXACTLY 4 physical descriptors and a short description of the scene, all comma separated.
+You MUST include a few physical descriptors and a short description of the scene.
+Output the prompt as a a comma separated list of attributes and objects, no verbs or grammar is needed.
 Limit the output length to around 50 tokens.
 You MUST follow the instructions given, without adding any unrequired information.
 """
-    style = "watercolor, pastel colors, best quality"
+    style = "digital painting, cartoon, pastel colors, best quality"
+    width = 512
+    height = 512
+    n_steps = 8
 
     def describe_picture(self, protagonist_description: str, scene: str) -> str:
         describe_picture_prompt = """
@@ -61,29 +194,10 @@ You MUST ouptut only the prompt. Do NOT add any comment or explanation.
         logger.info("prompt for image generation: %s", model_response)
         return model_response
 
-    def create_picture(self, protagonist_description: str, scene: str) -> str:
-        import base64
-        import random
-        from io import BytesIO
-
+    def get_pipeline(self):
         import torch
         from diffusers import DDIMScheduler, DiffusionPipeline
         from huggingface_hub import hf_hub_download
-
-        device = "mps"
-
-        inp = {
-            "short_name": "img",
-            "prompt": self.describe_picture(
-                protagonist_description=protagonist_description,
-                scene=scene,
-            )
-            + f", {self.style}",
-            "width": 512,
-            "height": 512,
-            "n_steps": 8,
-            "seed": random.randint(1, 1000000),
-        }
 
         base_model_id = "runwayml/stable-diffusion-v1-5"
         repo_name = "ByteDance/Hyper-SD"
@@ -99,24 +213,7 @@ You MUST ouptut only the prompt. Do NOT add any comment or explanation.
             pipe.scheduler.config,
             timestep_spacing="trailing",
         )
-        pipe.to(device)
-
-        generator = [torch.Generator(device).manual_seed(inp["seed"])]
-
-        image = pipe(
-            prompt=inp["prompt"],
-            generator=generator,
-            num_inference_steps=inp["n_steps"],
-            guidance_scale=0.2,
-            width=inp["width"],
-            height=inp["height"],
-        ).images[0]
-
-        buffered = BytesIO()
-        image.save(buffered, format="png")
-        img_str = base64.b64encode(buffered.getvalue())
-
-        return img_str
+        return pipe
 
 
 class Dalle3Illustrator:
@@ -205,69 +302,3 @@ You MUST ouptut only the prompt. Do NOT add any comment or explanation.
 
         image_json = response.data[0].b64_json
         return image_json
-
-
-# class ImageDescriber:
-#             client = openai.OpenAI(**local_config["openai_client_config"])
-#             system_prompt = """
-#         Your task is to create a precise prompt for generating a picture with vision models.
-#         Create a description as precise as possible, in free-form text.
-#         """
-
-#             def __init__(self):
-#                 self.character_description = None
-
-#             def describe_character(self, story_so_far: str):
-#                 describe_character_prompt = """
-#         # The story so far:
-#         {story_so_far}
-
-#         # Task
-#         Create a description of the protagonist.
-#         Include species, sex, age, eye color, hair color, clothing and distinctive traits.
-#         Do not include names.
-#         Do not include actions or background, since these will be added in a second step.
-#         """
-#                 message_history = [
-#                     {"role": "system", "content": self.system_prompt},
-#                     {
-#                         "name": "user",
-#                         "role": "user",
-#                         "content": describe_character_prompt.format(story_so_far=story_so_far),
-#                     },
-#                 ]
-#                 completion = self.client.chat.completions.create(
-#                     messages=message_history,
-#                     **local_config["completion_params"],
-#                 )
-#                 model_response = completion.choices[0].message.content
-#                 self.character_description = model_response
-
-#             def describe_picture(self, scene: str):
-#         describe_picture_prompt = """
-# # Protagonist:
-# {protagonist_description}
-
-# # Scene:
-# {scene}
-
-# # Task
-# Create a detailed prompt by combining the character and the scene.
-# Output the prompt in free text.
-# """
-#         message_history = [
-#             {"role": "system", "content": self.system_prompt},
-#             {
-#                 "name": "user",
-#                 "role": "user",
-#                 "content": describe_picture_prompt.format(
-#                     protagonist_description=self.character_description, scene=scene
-#                 ),
-#             },
-#         ]
-#         completion = self.client.chat.completions.create(
-#             messages=message_history,
-#             **local_config["completion_params"],
-#         )
-#         model_response = completion.choices[0].message.content
-#         return model_response

@@ -35,7 +35,7 @@ You only answer in {language}.
     def start_story(self) -> str:
         start_story_prompt = """
 * Start the story.
-* Introduce and describe a main character.
+* Introduce and describe a main character (e.g. a boy or a girl, a speaking animal, or a fantastical creature).
 * Set up a task or goal they need to do and add other details as you like.
 * Do not progress the story too far.
 """
@@ -126,11 +126,11 @@ You only answer in {language}.
 {story_so_far}
 
 # Task
-* Create a description of the protagonist.
-* Include species, sex, age, eye color, hair color, clothing and distinctive traits.
+* Create a short description of the protagonist.
+* Include species, sex, age, eye color, hair color, and clothing.
+* Do not add other details.
 * Do not include names.
 * Do not include actions or background, since these will be added in a second step.
-* Output the description as free text.
 
 Just for this instruction, you MUST answer in English.
 """
