@@ -25,6 +25,7 @@ class LLMStoryteller:
 * When you are ready to finish the story, add the following words "THE END".
 * Otherwise do not add anything.
 
+You MUST output only the story, no comments like "here the story begins" or "here the chapter ends".
 You only answer in {language}.
 """
 

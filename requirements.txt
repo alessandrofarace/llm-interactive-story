@@ -1,0 +1,7 @@
+diffusers
+json-repair
+openai
+peft
+streamlit
+torch
+transformers

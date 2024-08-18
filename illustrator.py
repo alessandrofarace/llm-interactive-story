@@ -1,8 +1,11 @@
+import logging
 from base64 import b64encode
 
 import openai
 
 from config import local_config, openai_config
+
+logger = logging.getLogger(__name__)
 
 
 class MockIllustrator:
@@ -13,6 +16,107 @@ class MockIllustrator:
         with open(image_path, "rb") as png:
             image_data = png.read()
         return b64encode(image_data)
+
+
+class SD15HyperLocalIllustrator:
+    llm_client = openai.OpenAI(**local_config["openai_client_config"])
+    system_prompt = """
+Your task is to create a precise prompt for generating a picture with stable diffusion 1.5.
+Create a description as precise as possible, in the best format for stable diffusion 1.5.
+You MUST include EXACTLY 4 physical descriptors and a short description of the scene, all comma separated.
+Limit the output length to around 50 tokens.
+You MUST follow the instructions given, without adding any unrequired information.
+"""
+    style = "watercolor, pastel colors, best quality"
+
+    def describe_picture(self, protagonist_description: str, scene: str) -> str:
+        describe_picture_prompt = """
+# Protagonist:
+{protagonist_description}
+
+# Scene:
+{scene}
+
+# Task
+Create a schematic prompt by combining the character and the scene.
+
+You MUST ouptut only the prompt. Do NOT add any comment or explanation.
+"""
+        message_history = [
+            {"role": "system", "content": self.system_prompt},
+            {
+                "name": "user",
+                "role": "user",
+                "content": describe_picture_prompt.format(
+                    protagonist_description=protagonist_description,
+                    scene=scene,
+                ),
+            },
+        ]
+        completion = self.llm_client.chat.completions.create(
+            messages=message_history,
+            **local_config["completion_params"],
+        )
+        model_response = completion.choices[0].message.content
+        logger.info("prompt for image generation: %s", model_response)
+        return model_response
+
+    def create_picture(self, protagonist_description: str, scene: str) -> str:
+        import base64
+        import random
+        from io import BytesIO
+
+        import torch
+        from diffusers import DDIMScheduler, DiffusionPipeline
+        from huggingface_hub import hf_hub_download
+
+        device = "mps"
+
+        inp = {
+            "short_name": "img",
+            "prompt": self.describe_picture(
+                protagonist_description=protagonist_description,
+                scene=scene,
+            )
+            + f", {self.style}",
+            "width": 512,
+            "height": 512,
+            "n_steps": 8,
+            "seed": random.randint(1, 1000000),
+        }
+
+        base_model_id = "runwayml/stable-diffusion-v1-5"
+        repo_name = "ByteDance/Hyper-SD"
+        ckpt_name = "Hyper-SD15-8steps-lora.safetensors"
+        pipe = DiffusionPipeline.from_pretrained(
+            base_model_id,
+            torch_dtype=torch.float16,
+            variant="fp16",
+        )
+        pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+        pipe.fuse_lora()
+        pipe.scheduler = DDIMScheduler.from_config(
+            pipe.scheduler.config,
+            timestep_spacing="trailing",
+        )
+        pipe.to(device)
+
+        generator = [torch.Generator(device).manual_seed(inp["seed"])]
+
+        image = pipe(
+            prompt=inp["prompt"],
+            generator=generator,
+            num_inference_steps=inp["n_steps"],
+            guidance_scale=0.2,
+            width=inp["width"],
+            height=inp["height"],
+        ).images[0]
+
+        buffered = BytesIO()
+        image.save(buffered, format="png")
+        img_str = base64.b64encode(buffered.getvalue())
+
+        return img_str
 
 
 class Dalle3Illustrator:

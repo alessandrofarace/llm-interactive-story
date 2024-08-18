@@ -3,11 +3,12 @@ Chat app and UI
 """
 
 import logging
+import shutil
 from base64 import b64decode
 
 import streamlit as st
 
-from illustrator import MockIllustrator
+from illustrator import SD15HyperLocalIllustrator
 from story import OpenEndedStory
 from storyteller import LLMStoryteller
 
@@ -35,7 +36,7 @@ N_ALTERNATIVES = 2
 def start_story():
     st.session_state.story = OpenEndedStory()
     st.session_state.storyteller = LLMStoryteller(language=st.session_state.language)
-    st.session_state.illustrator = MockIllustrator()
+    st.session_state.illustrator = SD15HyperLocalIllustrator()
     story_start = st.session_state.storyteller.start_story()
     st.session_state.story.add_chapter(text=story_start)
     st.session_state.story.protagonist_description = (
@@ -73,11 +74,15 @@ def start_story():
     st.rerun()
 
 
-def write_chapter(next_step):
+def write_chapter(continuation):
+    next_step_text = continuation.text
+    n_chapters = len(st.session_state.story.chapters)
+    next_step_image = f"images/chap_{n_chapters}.png"
+    shutil.copy(continuation.image, next_step_image)
     chapter = st.session_state.storyteller.continue_story(
-        st.session_state.story.full_text, next_step
+        st.session_state.story.full_text, next_step_text
     )
-    st.session_state.story.add_chapter(text=chapter)
+    st.session_state.story.add_chapter(text=chapter, image=next_step_image)
     possible_continuations = st.session_state.storyteller.propose_continuation(
         story_so_far=st.session_state.story.full_text, n_alternatives=N_ALTERNATIVES
     )
@@ -139,5 +144,5 @@ else:
                         "Continue",
                         key=f"write_chapter_{str(col)}",
                         on_click=write_chapter,
-                        args=[continuation.text],
+                        args=[continuation],
                     )
