@@ -26,11 +26,7 @@ class LLMStoryteller:
 * Otherwise do not add anything.
 
 You MUST output only the story, no comments like "here the story begins" or "here the chapter ends".
-You only answer in {language}.
 """
-
-    def __init__(self, language: str = "Italian") -> None:
-        self.system_prompt = self.system_prompt.format(language=language)
 
     def start_story(self) -> str:
         start_story_prompt = """
@@ -127,7 +123,7 @@ You only answer in {language}.
 
 # Task
 * Create a short description of the protagonist.
-* Include species, sex, age, eye color, hair color, and clothing.
+* Include species, sex, age (if human), eye color, hair color, and clothing.
 * Do not add other details.
 * Do not include names.
 * Do not include actions or background, since these will be added in a second step.

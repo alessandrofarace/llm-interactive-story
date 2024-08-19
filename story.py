@@ -3,9 +3,15 @@ from pathlib import Path
 
 class Chapter:
 
-    def __init__(self, text: str, image: Path | None = None) -> None:
+    def __init__(
+        self,
+        text: str,
+        image: Path | None = None,
+        translated_text: str | None = None,
+    ) -> None:
         self.text = text
         self.image = image
+        self.translated_text = translated_text
 
 
 class Story:
@@ -20,8 +26,15 @@ class Story:
         self.chapters = chapters
         self.protagonist_description = protagonist_description
 
-    def add_chapter(self, text: str = None, image: Path = None) -> None:
-        self.chapters.append(Chapter(text=text, image=image))
+    def add_chapter(
+        self,
+        text: str = None,
+        image: Path = None,
+        translated_text: str | None = None,
+    ) -> None:
+        self.chapters.append(
+            Chapter(text=text, image=image, translated_text=translated_text)
+        )
 
     @property
     def full_text(self) -> str:
@@ -43,8 +56,19 @@ class OpenEndedStory(Story):
             possible_continuations = []
         self.possible_continuations = possible_continuations
 
-    def add_continuation(self, text: str = None, image: Path = None) -> None:
-        self.possible_continuations.append(Chapter(text=text, image=image))
+    def add_continuation(
+        self,
+        text: str = None,
+        image: Path = None,
+        translated_text: str | None = None,
+    ) -> None:
+        self.possible_continuations.append(
+            Chapter(
+                text=text,
+                image=image,
+                translated_text=translated_text,
+            )
+        )
 
     def reset_continuations(self) -> None:
         self.possible_continuations = []

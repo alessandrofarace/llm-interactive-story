@@ -87,13 +87,7 @@ Output the prompt as a a comma separated list of minimal sentences.
 Limit the output length to around 50 tokens.
 You MUST follow the instructions given, without adding any unrequired information.
 """
-    style = "digital painting, cartoon, pastel colors, best quality"
-    width = 1024
-    height = 1024
-    n_steps = 4
-
-    def describe_picture(self, protagonist_description: str, scene: str) -> str:
-        describe_picture_prompt = """
+    describe_picture_prompt = """
 # Protagonist:
 {protagonist_description}
 
@@ -102,23 +96,33 @@ You MUST follow the instructions given, without adding any unrequired informatio
 
 # Task
 Create a schematic prompt by combining the character and the scene.
-Use only the information provided above. You can add style attributes, but do NOT invent other elements.
+Use only the information provided above. You can add atmosphere attributes, but do NOT invent other elements.
 
 You MUST ouptut only the prompt. Do NOT add any comment or explanation.
 """
+
+    style = "digital painting, cartoon, pastel colors, best quality"
+    width = 1024
+    height = 1024
+    n_steps = 4
+
+    def describe_picture(self, protagonist_description: str, scene: str) -> str:
         message_history = [
             {"role": "system", "content": self.system_prompt},
             {
                 "name": "user",
                 "role": "user",
-                "content": describe_picture_prompt.format(
+                "content": self.describe_picture_prompt.format(
                     protagonist_description=protagonist_description,
                     scene=scene,
                 ),
             },
         ]
+        message_history_with_examples = (
+            message_history[0:1] + self._get_examples() + message_history[-1:]
+        )
         completion = self.llm_client.chat.completions.create(
-            messages=message_history,
+            messages=message_history_with_examples,
             **local_config["completion_params"],
         )
         model_response = completion.choices[0].message.content
@@ -145,6 +149,40 @@ You MUST ouptut only the prompt. Do NOT add any comment or explanation.
             timestep_spacing="trailing",
         )
         return pipe
+
+    def _get_examples(self) -> list[dict]:
+        examples = [
+            {
+                "protagonist_description": "Female rabbit, 6 months old, bright brown eyes, fluffy white fur, wearing a tiny backpack with a small, colorful scarf tied around her neck",
+                "scene": "No scene has been set, just draw the full-body protagonist",
+                "image_prompt": "A female rabbit, bright brown eyes, fluffy white fur, tiny backpack, small colorful scarf tied around neck, full-body, front view",
+            },
+            {
+                "protagonist_description": "Female rabbit, 6 months old, bright brown eyes, fluffy white fur, wearing a tiny backpack with a small, colorful scarf tied around her neck",
+                "scene": "Rosie encounters a friendly squirrel named Squeaky who offers to guide her through the forest and share his knowledge of the Spring's location.",
+                "image_prompt": "A female rabbit, bright brown eyes, fluffy white fur, tiny backpack, colorful scarf, speaking with a friendly squirrel, warm sunlight, tall trees, soft forest floor",
+            },
+        ]
+        example_messages = []
+        for example in examples:
+            example_messages.append(
+                {
+                    "name": "user",
+                    "role": "user",
+                    "content": self.describe_picture_prompt.format(
+                        protagonist_description=example["protagonist_description"],
+                        scene=example["scene"],
+                    ),
+                }
+            )
+            example_messages.append(
+                {
+                    "name": "assistant",
+                    "role": "assistant",
+                    "content": example["image_prompt"],
+                }
+            )
+        return example_messages
 
 
 class SD15HyperLocalIllustrator(LocalDiffusersIllustrator):

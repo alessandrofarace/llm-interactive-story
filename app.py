@@ -11,6 +11,7 @@ import streamlit as st
 from illustrator import SDXLLightningLocalIllustrator
 from story import OpenEndedStory
 from storyteller import LLMStoryteller
+from translator import LLMTranslator
 
 
 @st.cache_resource
@@ -35,10 +36,15 @@ N_ALTERNATIVES = 2
 
 def start_story():
     st.session_state.story = OpenEndedStory()
-    st.session_state.storyteller = LLMStoryteller(language=st.session_state.language)
+    st.session_state.storyteller = LLMStoryteller()
     st.session_state.illustrator = SDXLLightningLocalIllustrator()
+    st.session_state.translator = LLMTranslator(language=st.session_state.language)
     story_start = st.session_state.storyteller.start_story()
-    st.session_state.story.add_chapter(text=story_start)
+    story_start_translated = st.session_state.translator.translate(story_start)
+    st.session_state.story.add_chapter(
+        text=story_start,
+        translated_text=story_start_translated,
+    )
     st.session_state.story.protagonist_description = (
         st.session_state.storyteller.describe_protagonist(
             story_so_far=st.session_state.story.full_text
@@ -55,7 +61,8 @@ def start_story():
     st.session_state.story.chapters[0].image = image_path
 
     possible_continuations = st.session_state.storyteller.propose_continuation(
-        story_so_far=st.session_state.story.full_text, n_alternatives=N_ALTERNATIVES
+        story_so_far=st.session_state.story.full_text,
+        n_alternatives=N_ALTERNATIVES,
     )
     st.session_state.story.reset_continuations()
     for j, continuation_text in enumerate(possible_continuations):
@@ -67,9 +74,13 @@ def start_story():
         image_path = f"images/alt_{j}.png"
         with open(image_path, "wb") as png:
             png.write(image_data)
+        continuation_text_translated = st.session_state.translator.translate(
+            continuation_text
+        )
         st.session_state.story.add_continuation(
             text=continuation_text,
             image=image_path,
+            translated_text=continuation_text_translated,
         )
     st.rerun()
 
@@ -80,11 +91,18 @@ def write_chapter(continuation):
     next_step_image = f"images/chap_{n_chapters}.png"
     shutil.copy(continuation.image, next_step_image)
     chapter = st.session_state.storyteller.continue_story(
-        st.session_state.story.full_text, next_step_text
+        st.session_state.story.full_text,
+        next_step_text,
     )
-    st.session_state.story.add_chapter(text=chapter, image=next_step_image)
+    chapter_translated = st.session_state.translator.translate(chapter)
+    st.session_state.story.add_chapter(
+        text=chapter,
+        image=next_step_image,
+        translated_text=chapter_translated,
+    )
     possible_continuations = st.session_state.storyteller.propose_continuation(
-        story_so_far=st.session_state.story.full_text, n_alternatives=N_ALTERNATIVES
+        story_so_far=st.session_state.story.full_text,
+        n_alternatives=N_ALTERNATIVES,
     )
     st.session_state.story.reset_continuations()
     for j, continuation_text in enumerate(possible_continuations):
@@ -96,9 +114,13 @@ def write_chapter(continuation):
         image_path = f"images/alt_{j}.png"
         with open(image_path, "wb") as png:
             png.write(image_data)
+        continuation_text_translated = st.session_state.translator.translate(
+            continuation_text
+        )
         st.session_state.story.add_continuation(
             text=continuation_text,
             image=image_path,
+            translated_text=continuation_text_translated,
         )
 
 
@@ -110,6 +132,8 @@ if "storyteller" not in st.session_state:
     st.session_state.storyteller = None
 if "illustrator" not in st.session_state:
     st.session_state.illustrator = None
+if "translator" not in st.session_state:
+    st.session_state.translator = None
 
 
 if st.session_state.language is None:
@@ -125,7 +149,7 @@ else:
                     chapter.image,
                     width=512,
                 )
-            st.markdown(chapter.text)
+            st.markdown(chapter.translated_text)
 
         if st.session_state.story.possible_continuations:
             n_possibilities = len(st.session_state.story.possible_continuations)
@@ -137,7 +161,7 @@ else:
                 with col:
                     st.image(
                         continuation.image,
-                        continuation.text,
+                        continuation.translated_text,
                         width=200,
                     )
                     st.button(
