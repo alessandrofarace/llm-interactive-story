@@ -18,9 +18,11 @@ class Story:
 
     def __init__(
         self,
+        story_plan: str | None = None,
         chapters: list[Chapter] | None = None,
         protagonist_description: str | None = None,
     ) -> None:
+        self.story_plan = story_plan
         if chapters is None:
             chapters = []
         self.chapters = chapters

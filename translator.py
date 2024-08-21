@@ -3,14 +3,16 @@ import logging
 import json_repair
 import openai
 
-from config import local_config
+from config import config
 
 logger = logging.getLogger(__name__)
+
+translator_config = config["translator_config"]
 
 
 class LLMTranslator:
 
-    client = openai.OpenAI(**local_config["openai_client_config"])
+    client = openai.OpenAI(**translator_config["openai_client_config"])
     system_prompt = """
 * You are an expert translator from English to {language}.
 * You are particularly good at translating children stories.
@@ -43,7 +45,7 @@ Translate the following text:
             ]
             completion = self.client.chat.completions.create(
                 messages=message_history,
-                **local_config["completion_params"],
+                **translator_config["chat_completion_params"],
             )
             model_response = completion.choices[0].message.content
             logger.info("translation: %s", model_response)

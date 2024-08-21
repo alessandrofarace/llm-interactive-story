@@ -1,92 +1,175 @@
+import json
 import logging
 
 import json_repair
 import openai
 
-from config import local_config
+from config import config
 
 logger = logging.getLogger(__name__)
+
+storyteller_config = config["storyteller_config"]
+
+
+# * You will be asked to write chapters of a story.
+# * You MUST output one chapter at a time.
+# * Keep each chapter simple and short.
+# * After three of four chapters, you MUST start to close loose ends and converge to a conclusion.
+# * When you are ready to finish the story, add the following words "THE END".
+# * Otherwise do not add anything.
+
+# You MUST output only the story, no comments like "here the story begins" or "here the chapter ends".
 
 
 class LLMStoryteller:
 
-    client = openai.OpenAI(**local_config["openai_client_config"])
+    client = openai.OpenAI(**storyteller_config["openai_client_config"])
     system_prompt = """
-* You are a storyteller for small children.
-* You tell short instructive stories.
-* You can set the stories in both realistic and fantastic worlds.
-* You can use a few emojis to add visual elements.
-* You MUST avoid mature themes like violence, guns, drugs, alcohol and sex.
+You are a storyteller for small children.
+You tell short instructive stories.
+You can set the stories in both realistic and fantastic worlds.
+You should mix a few emojis inbetween words to add visual elements.
+You MUST avoid mature themes like violence, guns, drugs, alcohol and sex.
 
-* You will be asked to write chapters of a story.
-* You MUST output one chapter at a time.
-* Keep each chapter simple and short.
-* After three of four chapters, you MUST start to close loose ends and converge to a conclusion.
-* When you are ready to finish the story, add the following words "THE END".
-* Otherwise do not add anything.
-
-You MUST output only the story, no comments like "here the story begins" or "here the chapter ends".
+You stick to the instructions given and you NEVER add comments and additional explanations.
 """
 
-    def start_story(self) -> str:
-        start_story_prompt = """
-* Start the story.
-* Introduce and describe a main character (e.g. a boy or a girl, a speaking animal, or a fantastical creature).
-* Set up a task or goal they need to do and add other details as you like.
-* Do not progress the story too far.
+    def plan_story(self) -> str:
+        user_prompt_template = """
+Plan an interactive story in 6 chapters. You should loosely follow these bullet points:
+
+1. Introduce a protagonist  (e.g. a boy or a girl, a speaking animal, or a fantastical creature) and their main goal
+2. The adventure starts
+3. The protagonist encounter an obstacle
+4. The protagonist finds some aid
+5. The obstacle is cleared
+6. The mission is complete and the story ends
+
+Be creative and original with the choice of the protagonist.
+For each of these bullet points write a short sentence. Leave as many details as open as possible. They will be filled later depending on the reader's choice.
+Format your output as a numbered list like the one above. Do not output anything else.
 """
+        user_prompt = user_prompt_template
         message_history = [
             {"role": "system", "content": self.system_prompt},
             {
                 "name": "user",
                 "role": "user",
-                "content": start_story_prompt,
+                "content": user_prompt,
             },
         ]
-        completion = self.client.chat.completions.create(
-            messages=message_history,
-            **local_config["completion_params"],
-        )
-        model_response = completion.choices[0].message.content
+        logger.info("planning story")
+        logger.info("messages: %s", json.dumps(message_history, indent=4))
+        model_response = self.get_chat_completion_content(messages=message_history)
+        logger.info("story plan: %s", model_response)
+        return model_response
+
+    def start_story(self, story_plan: str) -> str:
+        user_prompt_template = """
+# Story plan
+{story_plan}
+
+# Task
+Write the first chapter of the story.
+Introduce and describe the protagonist.
+Set up a task or goal they need to do and add other details as you like.
+Do not progress the story too far.
+"""
+        user_prompt = user_prompt_template.format(story_plan=story_plan)
+        message_history = [
+            {"role": "system", "content": self.system_prompt},
+            {
+                "name": "user",
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+        logger.info("starting story")
+        logger.info("messages: %s", json.dumps(message_history, indent=4))
+        model_response = self.get_chat_completion_content(messages=message_history)
         logger.info("story starts: %s", model_response)
+        return model_response
+
+    def describe_protagonist(self, story_so_far: str) -> str:
+        user_prompt_template = """
+# The story so far:
+{story_so_far}
+
+# Task
+Identify the protagonist of the story above.
+Create a SHORT description (e.g. one paragraph) of the protagonist.
+You must include the species, hair color, clothing or something special about their physical appearance.
+If the protagonist is human, also include sex and age.
+Do NOT add other details.
+Do NOT include names.
+Do NOT include actions or background, since these will be added in a second step.
+Do NOT add comments or explanations
+"""
+        user_prompt = user_prompt_template.format(story_so_far=story_so_far)
+        message_history = [
+            {"role": "system", "content": self.system_prompt},
+            {
+                "name": "user",
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+        logger.info("describing protagonist story")
+        logger.info("messages: %s", json.dumps(message_history, indent=4))
+        model_response = self.get_chat_completion_content(messages=message_history)
+        logger.info("protagonist description: %s", model_response)
         return model_response
 
     def propose_continuation(
         self,
+        story_plan: str,
         story_so_far: str,
+        chapter_nr: int,
         n_alternatives: int = 2,
     ) -> list[str]:
-        propose_alternative_prompt = """
+        user_prompt_template = """
+# Story plan
+{story_plan}
+
 # The story so far:
 {story_so_far}
 
 # Task:
-* Propose {n_alternatives} and only {n_alternatives} alternative ways in which the story could continue.
-* Keep each alternative as a short sentence of the form <PROTAGONIST><ACTION><DETAILS>.
-* After three of four chapters, you MUST propose alternatives that complete the protagonist's mission and converge to a conclusion.
-* Output the {n_alternatives} alternatives as a JSON dictionary, with numbers as keys and text as values (no list around the dictionary).
-* You MUST NOT output any comment, explanation or additional content.
+Propose {n_alternatives} and only {n_alternatives} alternative ways in which chapter {chapter_nr} could continue.
+The alternatives MUST agree with the story plan.
+Keep each alternative as a short sentence of the form <PROTAGONIST><ACTION><DETAILS>.
+Output the {n_alternatives} alternatives as a JSON dictionary, with numbers as keys and text as values (no list around the dictionary).
+You MUST NOT output any comment, explanation or additional content.
 """
+        user_prompt = user_prompt_template.format(
+            story_plan=story_plan,
+            story_so_far=story_so_far,
+            chapter_nr=chapter_nr,
+            n_alternatives=n_alternatives,
+        )
         message_history = [
             {"role": "system", "content": self.system_prompt},
             {
                 "name": "user",
                 "role": "user",
-                "content": propose_alternative_prompt.format(
-                    story_so_far=story_so_far,
-                    n_alternatives=n_alternatives,
-                ),
+                "content": user_prompt,
             },
         ]
-        completion = self.client.chat.completions.create(
-            messages=message_history,
-            **local_config["completion_params"],
-        )
-        model_response = completion.choices[0].message.content
+        logger.info("proposing continuations")
+        logger.info("messages: %s", json.dumps(message_history, indent=4))
+        model_response = self.get_chat_completion_content(messages=message_history)
         logger.info("possible continuations: %s", model_response)
         alternatives_dict = json_repair.loads(model_response)
         alternatives = list(alternatives_dict.values())
         return alternatives
+
+    def get_chat_completion_content(self, messages: list[dict]) -> str:
+        completion = self.client.chat.completions.create(
+            messages=messages,
+            **storyteller_config["chat_completion_params"],
+        )
+        model_response = completion.choices[0].message.content
+        return model_response
 
     def continue_story(self, story_so_far, next_step) -> str:
         continue_story_prompt = """
@@ -110,38 +193,8 @@ You MUST output only the story, no comments like "here the story begins" or "her
         ]
         completion = self.client.chat.completions.create(
             messages=message_history,
-            **local_config["completion_params"],
+            **storyteller_config["chat_completion_params"],
         )
         model_response = completion.choices[0].message.content
         logger.info("story continues: %s", model_response)
-        return model_response
-
-    def describe_protagonist(self, story_so_far: str) -> str:
-        describe_character_prompt = """
-# The story so far:
-{story_so_far}
-
-# Task
-* Create a short description of the protagonist.
-* Include species, sex, age (if human), eye color, hair color, and clothing.
-* Do not add other details.
-* Do not include names.
-* Do not include actions or background, since these will be added in a second step.
-
-Just for this instruction, you MUST answer in English.
-"""
-        message_history = [
-            {"role": "system", "content": self.system_prompt},
-            {
-                "name": "user",
-                "role": "user",
-                "content": describe_character_prompt.format(story_so_far=story_so_far),
-            },
-        ]
-        completion = self.client.chat.completions.create(
-            messages=message_history,
-            **local_config["completion_params"],
-        )
-        model_response = completion.choices[0].message.content
-        logger.info("protagonist description: %s", model_response)
         return model_response
