@@ -57,7 +57,7 @@ def start_story() -> None:
             story_so_far=st.session_state.story.full_text
         )
     )
-    protagonist_image = st.session_state.illustrator.create_picture(
+    protagonist_image = st.session_state.illustrator.create_b64_encoded_picture(
         protagonist_description=st.session_state.story.protagonist_description,
         scene="No scene has been set, just draw the full-body protagonist",
     )
@@ -75,7 +75,7 @@ def start_story() -> None:
     )
     st.session_state.story.reset_continuations()
     for j, continuation_text in enumerate(possible_continuations):
-        continuation_image = st.session_state.illustrator.create_picture(
+        continuation_image = st.session_state.illustrator.create_b64_encoded_picture(
             protagonist_description=st.session_state.story.protagonist_description,
             scene=continuation_text,
         )

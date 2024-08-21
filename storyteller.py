@@ -2,9 +2,9 @@ import json
 import logging
 
 import json_repair
-import openai
 
 from config import config
+from llm_utils import LLMAgent
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,9 @@ storyteller_config = config["storyteller_config"]
 # You MUST output only the story, no comments like "here the story begins" or "here the chapter ends".
 
 
-class LLMStoryteller:
+class LLMStoryteller(LLMAgent):
 
-    client = openai.OpenAI(**storyteller_config["openai_client_config"])
+    config = storyteller_config
     system_prompt = """
 You are a storyteller for small children.
 You tell short instructive stories.
@@ -35,6 +35,7 @@ You stick to the instructions given and you NEVER add comments and additional ex
 """
 
     def plan_story(self) -> str:
+        # TODO guide the generation of the protagonist
         user_prompt_template = """
 Plan an interactive story in 6 chapters. You should loosely follow these bullet points:
 
@@ -163,13 +164,7 @@ You MUST NOT output any comment, explanation or additional content.
         alternatives = list(alternatives_dict.values())
         return alternatives
 
-    def get_chat_completion_content(self, messages: list[dict]) -> str:
-        completion = self.client.chat.completions.create(
-            messages=messages,
-            **storyteller_config["chat_completion_params"],
-        )
-        model_response = completion.choices[0].message.content
-        return model_response
+    # ---
 
     def continue_story(self, story_so_far, next_step) -> str:
         continue_story_prompt = """
