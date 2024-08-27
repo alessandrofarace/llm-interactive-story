@@ -7,6 +7,8 @@ from io import BytesIO
 
 import json_repair
 import openai
+import requests
+from gradio_client import Client
 
 from config import config
 from llm_utils import LLMAgent, assistant_message, user_message
@@ -95,7 +97,7 @@ Do NOT add any comment or explanation. You MUST follow the instructions given, w
             scene=scene,
         )
         message_history = [
-            {"role": "system", "content": self.system_prompt},
+            {"role": "system", "content": system_prompt},
             user_message(
                 user_prompt_template.format(
                     scene="No scene has been set, just draw the full-body protagonist"
@@ -132,6 +134,48 @@ Do NOT add any comment or explanation. You MUST follow the instructions given, w
         logger.info("messages: %s", json.dumps(message_history, indent=4))
         model_response = self.get_chat_completion_content(messages=message_history)
         logger.info("scene description: %s", model_response)
+        return model_response
+
+
+class LLMPrompterForFlux(LLMAgent):
+    config = illustrator_config
+    system_prompt = """
+You are a gen-ai artist expert in prompting diffusion Flux models.
+Output the requested prompts as short descriptive sentences.
+"""
+
+    def describe_picture(
+        self,
+        protagonist_description: str,
+        scene: str,
+    ) -> str:
+        system_prompt = (
+            self.system_prompt
+            + """# Task
+You will be asked to write a short prompt that describes a scene.
+Use only the information provided by the user, do NOT invent other elements.
+Output a few short sentences, separated by a commma.
+Roughly follow this schema: protagonist description, main actions of the protagonist,other character and elements in the scene, atmosphere of the picture
+
+Do NOT add any comment or explanation. You MUST follow the instructions given, without adding any unrequired information."""
+        )
+        user_prompt_template = """# Protagonist description:
+{protagonist_description}
+
+# Scene:
+{scene}"""
+        user_prompt = user_prompt_template.format(
+            protagonist_description=protagonist_description,
+            scene=scene,
+        )
+        message_history = [
+            {"role": "system", "content": system_prompt},
+            user_message(user_prompt),
+        ]
+        logger.info("creating image prompt")
+        logger.info("messages: %s", json.dumps(message_history, indent=4))
+        model_response = self.get_chat_completion_content(messages=message_history)
+        logger.info("image prompt: %s", model_response)
         return model_response
 
 
@@ -287,8 +331,67 @@ class SDXLLightningLocalIllustrator(LocalDiffusersIllustrator):
     #     return example_messages
 
 
+class FluxClientIllustrator:
+    style_attributes = "digital painting, cartoon, pastel colors, best quality"
+    width = 1024
+    height = 1024
+    n_steps = 4
+
+    def __init__(self):
+        self.llm_prompter = LLMPrompterForFlux()
+        self.client = Client(
+            "black-forest-labs/FLUX.1-schnell",
+            download_files=False,
+        )
+        self.seed = random.randint(1, 1000000)
+
+    def create_image_prompt(self, protagonist_description: str, scene: str) -> str:
+        image_prompt = self.llm_prompter.describe_picture(
+            protagonist_description=protagonist_description,
+            scene=scene,
+        )
+        image_prompt = f"{image_prompt}, {self.style_attributes}"
+        logger.info("image_prompt: %s", image_prompt)
+        return image_prompt
+
+    def create_b64_encoded_picture(
+        self,
+        protagonist_description: str,
+        scene: str,
+    ) -> str:
+        inp = {
+            "short_name": "img",
+            "prompt": self.create_image_prompt(
+                protagonist_description=protagonist_description,
+                scene=scene,
+            ),
+            "width": self.width,
+            "height": self.height,
+            "n_steps": self.n_steps,
+            "seed": self.seed,
+        }
+
+        result = self.client.predict(
+            prompt=inp["prompt"],
+            seed=self.seed,
+            randomize_seed=False,
+            width=inp["width"],
+            height=inp["height"],
+            num_inference_steps=inp["n_steps"],
+            api_name="/infer",
+        )
+        r = requests.get(result[0]["url"])
+        buffered = BytesIO(r.content)
+        img_str = base64.b64encode(buffered.getvalue())
+        return img_str
+
+
 class MockIllustrator:
-    def create_picture(self, protagonist_description: str, scene: str) -> str:
+    def create_b64_encoded_picture(
+        self,
+        protagonist_description: str,
+        scene: str,
+    ) -> str:
         image_path = (
             "/Users/al.farace/Projects/llm-interactive-story/images/protagonist.png"
         )
