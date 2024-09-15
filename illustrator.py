@@ -371,18 +371,40 @@ class FluxClientIllustrator:
             "seed": self.seed,
         }
 
-        result = self.client.predict(
-            prompt=inp["prompt"],
-            seed=self.seed,
-            randomize_seed=False,
-            width=inp["width"],
-            height=inp["height"],
-            num_inference_steps=inp["n_steps"],
-            api_name="/infer",
-        )
-        r = requests.get(result[0]["url"])
-        buffered = BytesIO(r.content)
-        img_str = base64.b64encode(buffered.getvalue())
+        try:
+            max_retries = 2
+            rep = 0
+            incomplete = True
+            while incomplete and rep < max_retries:
+                rep += 1
+                try:
+                    result = self.client.predict(
+                        prompt=inp["prompt"],
+                        seed=self.seed,
+                        randomize_seed=False,
+                        width=inp["width"],
+                        height=inp["height"],
+                        num_inference_steps=inp["n_steps"],
+                        api_name="/infer",
+                    )
+
+                    r = requests.get(result[0]["url"], timeout=60)
+                    buffered = BytesIO(r.content)
+                    img_str = base64.b64encode(buffered.getvalue())
+                    incomplete = False
+                except Exception as e:
+                    logger.info(f"Image generation try nr {rep} failed")
+                    logger.exception(e)
+
+        except Exception as e:
+            logger.exception(e)
+            image_path = (
+                "/Users/al.farace/Projects/llm-interactive-story/images/book.png"
+            )
+            with open(image_path, "rb") as png:
+                image_data = png.read()
+            img_str = base64.b64encode(image_data)
+
         return img_str
 
 

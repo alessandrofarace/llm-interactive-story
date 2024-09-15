@@ -9,7 +9,7 @@ from base64 import b64decode
 
 import streamlit as st
 
-from config import config
+from config import story_config
 from illustrator import (
     FluxClientIllustrator,
     MockIllustrator,
@@ -37,7 +37,7 @@ def configure_logger():
 
 logger = configure_logger()
 
-N_ALTERNATIVES = config["storyteller_config"]["n_alternatives"]
+N_ALTERNATIVES = story_config["n_alternatives"]
 
 
 def add_continuations() -> None:
@@ -98,30 +98,6 @@ def start_story() -> None:
     st.session_state.story.chapters[0].image = image_path
 
     add_continuations()
-    # possible_continuations = st.session_state.storyteller.propose_continuation(
-    #     story_plan=st.session_state.story.story_plan,
-    #     story_so_far=st.session_state.story.full_text,
-    #     chapter_nr=len(st.session_state.story.chapters) + 1,
-    #     n_alternatives=N_ALTERNATIVES,
-    # )
-    # st.session_state.story.reset_continuations()
-    # for j, continuation_text in enumerate(possible_continuations):
-    #     continuation_image = st.session_state.illustrator.create_b64_encoded_picture(
-    #         protagonist_description=st.session_state.story.protagonist_description,
-    #         scene=continuation_text,
-    #     )
-    #     image_data = b64decode(continuation_image)
-    #     image_path = f"images/alt_{j}.png"
-    #     with open(image_path, "wb") as png:
-    #         png.write(image_data)
-    #     continuation_text_translated = st.session_state.translator.translate(
-    #         continuation_text
-    #     )
-    #     st.session_state.story.add_continuation(
-    #         text=continuation_text,
-    #         image=image_path,
-    #         translated_text=continuation_text_translated,
-    #     )
 
     st.rerun()
 
@@ -144,31 +120,11 @@ def write_chapter(continuation: Chapter) -> None:
         translated_text=chapter_translated,
     )
 
-    add_continuations()
-    # possible_continuations = st.session_state.storyteller.propose_continuation(
-    #     story_plan=st.session_state.story.story_plan,
-    #     story_so_far=st.session_state.story.full_text,
-    #     chapter_nr=len(st.session_state.story.chapters) + 1,
-    #     n_alternatives=N_ALTERNATIVES,
-    # )
-    # st.session_state.story.reset_continuations()
-    # for j, continuation_text in enumerate(possible_continuations):
-    #     continuation_image = st.session_state.illustrator.create_b64_encoded_picture(
-    #         protagonist_description=st.session_state.story.protagonist_description,
-    #         scene=continuation_text,
-    #     )
-    #     image_data = b64decode(continuation_image)
-    #     image_path = f"images/alt_{j}.png"
-    #     with open(image_path, "wb") as png:
-    #         png.write(image_data)
-    #     continuation_text_translated = st.session_state.translator.translate(
-    #         continuation_text
-    #     )
-    #     st.session_state.story.add_continuation(
-    #         text=continuation_text,
-    #         image=image_path,
-    #         translated_text=continuation_text_translated,
-    #     )
+    tot_chapters = len(st.session_state.story.story_plan)
+    if n_chapters + 1 < tot_chapters:
+        add_continuations()
+    else:
+        st.session_state.story.reset_continuations()
 
 
 def display_chapter(chapter: Chapter) -> None:
@@ -223,11 +179,11 @@ if st.session_state.language is None:
         st.session_state.language = language
         start_story()
 else:
-    st.markdown(json.dumps(st.session_state.story.story_plan, indent=4))  # TODO remove
+    # st.markdown(json.dumps(st.session_state.story.story_plan, indent=4))  # TODO remove
     if st.session_state.story:
         for chap_nr, chapter in enumerate(st.session_state.story.chapters):
-            st.markdown(f"# Chapter {chap_nr + 1}")  # TODO remove
-            st.markdown(st.session_state.story.story_plan[chap_nr + 1])  # TODO remove
+            # st.markdown(f"# Chapter {chap_nr + 1}")  # TODO remove
+            # st.markdown(st.session_state.story.story_plan[chap_nr + 1])  # TODO remove
             display_chapter(chapter)
 
         if st.session_state.story.possible_continuations:

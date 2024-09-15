@@ -76,7 +76,7 @@ Example:
 4. The obstacle is cleared
 5. The mission is complete and the story ends
 
-Be creative and original with the choice of the protagonist.
+The protagonist must be {protagonist}.
 For each of these bullet points write a short sentence. Leave as many details as open as possible. They will be filled later depending on the reader's choice.
 Format your output as a JSON dictionary, with integer numbers as keys. Do not output anything else."""
 
