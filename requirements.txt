@@ -1,4 +1,5 @@
 diffusers
+gradio_client
 json-repair
 openai
 peft

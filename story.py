@@ -18,9 +18,13 @@ class Story:
 
     def __init__(
         self,
+        story_plan: dict | None = None,
         chapters: list[Chapter] | None = None,
         protagonist_description: str | None = None,
     ) -> None:
+        if story_plan is None:
+            story_plan = {}
+        self.story_plan = story_plan
         if chapters is None:
             chapters = []
         self.chapters = chapters
@@ -45,12 +49,15 @@ class OpenEndedStory(Story):
 
     def __init__(
         self,
+        story_plan: dict | None = None,
         chapters: list[Chapter] | None = None,
         protagonist_description: str | None = None,
         possible_continuations: list[Chapter] | None = None,
     ) -> None:
         super().__init__(
-            chapters=chapters, protagonist_description=protagonist_description
+            story_plan=story_plan,
+            chapters=chapters,
+            protagonist_description=protagonist_description,
         )
         if possible_continuations is None:
             possible_continuations = []
