@@ -1,11 +1,9 @@
 import logging
 
-from config import config
+from config import translator_config
 from llm_utils import LLMAgent
 
 logger = logging.getLogger(__name__)
-
-translator_config = config["translator_config"]
 
 
 class LLMTranslator(LLMAgent):

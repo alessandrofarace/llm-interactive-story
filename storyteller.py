@@ -4,12 +4,10 @@ import random
 
 import json_repair
 
-from config import config
+from config import storyteller_config
 from llm_utils import LLMAgent
 
 logger = logging.getLogger(__name__)
-
-storyteller_config = config["storyteller_config"]
 
 
 # * You will be asked to write chapters of a story.
@@ -207,7 +205,8 @@ You MUST NOT output any comment, explanation or additional content."""
 # Task:
 Write chapter {chapter_nr} of the story.
 Start from the following idea: {next_step}.
-The chapter MUST conclude with the main event listed for chapter {chapter_nr} in the story plan: {chapter_end}."""
+The chapter MUST conclude with the main event listed for chapter {chapter_nr} in the story plan: {chapter_end}.
+The events of the chapter must unfold in a smooth way, without sudden changes or jumps from one scene to the next."""
 
         user_prompt = user_prompt_template.format(
             story_plan=json.dumps(story_plan, indent=4),

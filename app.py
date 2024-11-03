@@ -23,7 +23,7 @@ from translator import LLMTranslator
 @st.cache_resource
 def configure_logger():
     logger = logging.getLogger()
-    log_file = "log_file.log"
+    log_file = "logs/log_file.log"
     logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler(log_file, mode="w")
     file_handler.setLevel(logging.INFO)
@@ -37,7 +37,7 @@ def configure_logger():
 
 logger = configure_logger()
 
-N_ALTERNATIVES = story_config["n_alternatives"]
+N_ALTERNATIVES = story_config.n_continuations
 
 
 def add_continuations() -> None:

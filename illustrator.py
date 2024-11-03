@@ -10,12 +10,10 @@ import openai
 import requests
 from gradio_client import Client
 
-from config import config
+from config import illustrator_config
 from llm_utils import LLMAgent, assistant_message, user_message
 
 logger = logging.getLogger(__name__)
-
-illustrator_config = config["illustrator_config"]
 
 
 class LLMPrompterForSDXL(LLMAgent):
@@ -138,7 +136,7 @@ Do NOT add any comment or explanation. You MUST follow the instructions given, w
 
 
 class LLMPrompterForFlux(LLMAgent):
-    config = illustrator_config
+    config = illustrator_config.prompter_config
     system_prompt = """
 You are a gen-ai artist expert in prompting diffusion Flux models.
 Output the requested prompts as short descriptive sentences.
