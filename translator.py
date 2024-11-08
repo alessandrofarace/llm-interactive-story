@@ -29,6 +29,7 @@ You MUST output only the requested translation, without any additional comments.
 Carefully translate the following text to English:
 {text}
 
+If the text is already in English, just output the original.
 You MUST output only the requested translation, without any additional comments.
 """
         if self.language == "English":

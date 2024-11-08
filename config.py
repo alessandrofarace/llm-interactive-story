@@ -44,9 +44,9 @@ class IllustratorConfig:
 
 def parse_llm_config(params_dict: dict, default_config: LLMConfig) -> LLMConfig:
     llm_config = LLMConfig(**params_dict)
-    if llm_config.openai_client_params == "default":
+    if llm_config.openai_client_params == "DEFAULT":
         llm_config.openai_client_params = default_config.openai_client_params
-    if llm_config.chat_completion_params == "default":
+    if llm_config.chat_completion_params == "DEFAULT":
         llm_config.chat_completion_params = default_config.chat_completion_params
     return llm_config
 
