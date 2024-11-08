@@ -373,6 +373,7 @@ class FluxClientIllustrator:
             max_retries = 2
             rep = 0
             incomplete = True
+            last_exception = None
             while incomplete and rep < max_retries:
                 rep += 1
                 try:
@@ -393,9 +394,12 @@ class FluxClientIllustrator:
                 except Exception as e:
                     logger.info(f"Image generation try nr {rep} failed")
                     logger.exception(e)
+                    last_exception = e
+            if incomplete:
+                raise last_exception
 
         except Exception as e:
-            logger.exception(e)
+            logger.info("Using default image")
             image_path = (
                 "/Users/al.farace/Projects/llm-interactive-story/images/book.png"
             )

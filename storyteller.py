@@ -65,8 +65,45 @@ Example:
         logger.info("choice: %s", choice)
         return choice
 
-    def plan_story(self) -> dict:
-        user_prompt_template = """Plan an interactive story in 5 chapters. You should loosely follow these bullet points:
+    def identify_protagonist(self, abstract: str) -> str:
+        user_prompt_template = """The premise of the story is: {abstract}.
+        
+If a protagonist is mentioned, output the protagonist.
+Otherwise identify a suitable protagonist that fits the setting given in the premise. In the second case be creative. For example, the protagonist can be a boy or a girl, a human, a speaking animal, or a fantastical creature.
+
+Output only the protagonist without adding any comment. Format your output as in the examples below.
+
+Examples:
+"Harry the pirate",
+"Nemo the small fish",
+"Greta the mermaid",
+"Leo the curious boy",
+"Mary the fast girl",
+"Gaia the bee",
+"Sophie the veterinarian",
+"""
+
+        user_prompt = user_prompt_template.format(
+            abstract=abstract,
+        )
+        message_history = [
+            {"role": "system", "content": self.system_prompt},
+            {
+                "name": "user",
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+        logger.info("identifying protagonist")
+        logger.info("messages: %s", json.dumps(message_history, indent=4))
+        protagonist = self.get_chat_completion_content(messages=message_history)
+        logger.info("protagonists: %s", protagonist)
+        return protagonist
+
+    def plan_story(self, abstract: str | None = None) -> dict:
+        user_prompt_template = """Plan an interactive story in 5 chapters. {abstract_prompt_part}
+        
+You should loosely follow these bullet points:
 
 1. Introduce the protagonist, {protagonist}, and their main goal, then the adventure starts
 2. The protagonist encounter an obstacle
@@ -78,8 +115,16 @@ The protagonist must be {protagonist}.
 For each of these bullet points write a short sentence. Leave as many details as open as possible. They will be filled later depending on the reader's choice.
 Format your output as a JSON dictionary, with integer numbers as keys. Do not output anything else."""
 
-        protagonist = self.generate_protagonist()
-        user_prompt = user_prompt_template.format(protagonist=protagonist)
+        if abstract:
+            protagonist = self.identify_protagonist(abstract=abstract)
+            abstract_prompt_part = f"The premise of the story is: {abstract}"
+        else:
+            protagonist = self.generate_protagonist()
+            abstract_prompt_part = ""
+        user_prompt = user_prompt_template.format(
+            abstract_prompt_part=abstract_prompt_part,
+            protagonist=protagonist,
+        )
         message_history = [
             {"role": "system", "content": self.system_prompt},
             {

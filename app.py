@@ -4,6 +4,7 @@ Chat app and UI
 
 import json
 import logging
+import os
 import shutil
 from base64 import b64decode
 
@@ -23,6 +24,7 @@ from translator import LLMTranslator
 @st.cache_resource
 def configure_logger():
     logger = logging.getLogger()
+    os.makedirs("logs", exist_ok=True)
     log_file = "logs/log_file.log"
     logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler(log_file, mode="w")
@@ -55,8 +57,8 @@ def add_continuations() -> None:
         image_path = f"images/alt_{j}.png"
         with open(image_path, "wb") as png:
             png.write(image_data)
-        continuation_text_translated = st.session_state.translator.translate(
-            continuation_text
+        continuation_text_translated = (
+            st.session_state.translator.translate_to_language(continuation_text)
         )
         st.session_state.story.add_continuation(
             text=continuation_text,
@@ -65,18 +67,34 @@ def add_continuations() -> None:
         )
 
 
-def start_story() -> None:
-    st.session_state.story = OpenEndedStory()
+def start_story(language: str | None, user_input: str | None) -> None:
+    if not language:
+        st.error("Please select a language")
+        return
+
+    st.session_state.language = language
     st.session_state.storyteller = LLMStoryteller()
     st.session_state.illustrator = FluxClientIllustrator()
     st.session_state.translator = LLMTranslator(language=st.session_state.language)
 
-    st.session_state.story.story_plan = st.session_state.storyteller.plan_story()
+    if user_input:
+        abstract_english = st.session_state.translator.translate_to_english(user_input)
+    else:
+        abstract_english = user_input
+
+    st.session_state.story = OpenEndedStory(abstract=abstract_english)
+    st.session_state.started = True
+
+    st.session_state.story.story_plan = st.session_state.storyteller.plan_story(
+        abstract=st.session_state.story.abstract
+    )
 
     story_start = st.session_state.storyteller.start_story(
         story_plan=st.session_state.story.story_plan
     )
-    story_start_translated = st.session_state.translator.translate(story_start)
+    story_start_translated = st.session_state.translator.translate_to_language(
+        story_start
+    )
     st.session_state.story.add_chapter(
         text=story_start,
         translated_text=story_start_translated,
@@ -99,7 +117,7 @@ def start_story() -> None:
 
     add_continuations()
 
-    st.rerun()
+    # st.rerun()
 
 
 def write_chapter(continuation: Chapter) -> None:
@@ -113,7 +131,7 @@ def write_chapter(continuation: Chapter) -> None:
         chapter_nr=n_chapters + 1,
         next_step=next_step_text,
     )
-    chapter_translated = st.session_state.translator.translate(chapter)
+    chapter_translated = st.session_state.translator.translate_to_language(chapter)
     st.session_state.story.add_chapter(
         text=chapter,
         image=next_step_image,
@@ -171,19 +189,26 @@ if "illustrator" not in st.session_state:
     st.session_state.illustrator = None
 if "translator" not in st.session_state:
     st.session_state.translator = None
+if "started" not in st.session_state:
+    st.session_state.started = False
 
-
-if st.session_state.language is None:
+if not st.session_state.started:
     language = st.selectbox("Language", ("Italian", "German", "English"), index=None)
-    if language is not None:
-        st.session_state.language = language
-        start_story()
+    user_input = st.text_input(
+        label="What should the story be about?",
+        value="Suprise me",
+        key="user_story_prompt",
+    )
+    st.button(
+        "Start story",
+        key="start_story",
+        on_click=start_story,
+        args=[language, user_input],
+    )
+
 else:
-    # st.markdown(json.dumps(st.session_state.story.story_plan, indent=4))  # TODO remove
     if st.session_state.story:
         for chap_nr, chapter in enumerate(st.session_state.story.chapters):
-            # st.markdown(f"# Chapter {chap_nr + 1}")  # TODO remove
-            # st.markdown(st.session_state.story.story_plan[chap_nr + 1])  # TODO remove
             display_chapter(chapter)
 
         if st.session_state.story.possible_continuations:
