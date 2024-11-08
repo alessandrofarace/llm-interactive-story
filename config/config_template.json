@@ -1,0 +1,32 @@
+{
+    "story_config": {
+        "n_continuations": 2
+    },
+    "default_openai_client_params": {
+        "base_url": "The URL for an openai compatible endpoint, e.g. https://api.groq.com/openai/v1 for Groq, or http://localhost:8080/v1 for models served locally with llama.cpp",
+        "api_key": "The api key, if needed. This can be the literal GROQ (in which case the real key will be read from the env variable GROQ_API_KEY) or an explicit key"
+    },
+    "default_chat_completion_params": {
+            "model": "Name of the model. This is needed for public apis like Groq or OpenAI. E.g. mixtral-8x7b-32768 (one of the models available in Groq)"
+    },
+    "storyteller_config": {
+        "openai_client_params": "Use DEFAULT to use the default client specified above, or pass new base_url and api_key",
+        "chat_completion_params": "Use DEFAULT to use the default client specified above, or pass params"
+    },
+    "translator_config": {
+        "openai_client_params": "Use DEFAULT to use the default client specified above, or pass new base_url and api_key",
+        "chat_completion_params": "Use DEFAULT to use the default client specified above, or pass params"
+    },
+    "illustrator_config": {
+        "prompter_config": {
+            "openai_client_params": "Use DEFAULT to use the default client specified above, or pass new base_url and api_key",
+            "chat_completion_params": "Use DEFAULT to use the default client specified above, or pass params"
+        },
+        "painter_config": {
+            "vision_openai_client_config": {
+                "base_url": "no-url",
+                "api_key": "no-key-required"
+            }
+        }
+    }
+}
