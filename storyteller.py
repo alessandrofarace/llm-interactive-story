@@ -24,7 +24,7 @@ class LLMStoryteller(LLMAgent):
 
     config = storyteller_config
     system_prompt = """You are a storyteller for small children.
-You tell short instructive stories.
+You tell short instructive and adventorous stories.
 You can set the stories in both realistic and fantastic worlds.
 You should mix a few emojis inbetween words to add visual elements.
 You MUST avoid mature themes like violence, guns, drugs, alcohol and sex.
@@ -67,8 +67,8 @@ Example:
 
     def identify_protagonist(self, abstract: str) -> str:
         user_prompt_template = """The premise of the story is: {abstract}.
-        
-If a protagonist is mentioned, output the protagonist.
+
+If a character is mentioned, use it as protagonist.
 Otherwise identify a suitable protagonist that fits the setting given in the premise. In the second case be creative. For example, the protagonist can be a boy or a girl, a human, a speaking animal, or a fantastical creature.
 
 Output only the protagonist without adding any comment. Format your output as in the examples below.
@@ -102,17 +102,19 @@ Examples:
 
     def plan_story(self, abstract: str | None = None) -> dict:
         user_prompt_template = """Plan an interactive story in 5 chapters. {abstract_prompt_part}
-        
+
 You should loosely follow these bullet points:
 
 1. Introduce the protagonist, {protagonist}, and their main goal, then the adventure starts
-2. The protagonist encounter an obstacle
-3. The protagonist finds some aid
-4. The obstacle is cleared
+2. The protagonist encounter an obstacle or a challenge
+3. The protagonist finds some aid, for example they find a companion, or a stranger can guide their next steps
+4. The obstacle (from bullet point 2.) is cleared and the protagonist can progress their adventure
 5. The mission is complete and the story ends
 
 The protagonist must be {protagonist}.
-For each of these bullet points write a short sentence. Leave as many details as open as possible. They will be filled later depending on the reader's choice.
+For each of these bullet points write a short sentence that continues the plan of the previous bullet points.
+Define the main elements but leave as many details as open as possible. They will be filled later depending on the reader's choice.
+Be creative with your choices.
 Format your output as a JSON dictionary, with integer numbers as keys. Do not output anything else."""
 
         if abstract:
@@ -153,7 +155,7 @@ Write the first chapter of the story.
 Introduce and describe the protagonist.
 Set up a task or goal they need to do and add other details as you like.
 Add a short paragraph describing how the protagonist sets off to achieve their goal.
-Do NOT include elements that are part of the next chapters."""
+Do NOT include elements that are part of the next chapters in the story plan."""
 
         user_prompt = user_prompt_template.format(
             story_plan=json.dumps(story_plan, indent=4)
@@ -251,7 +253,8 @@ You MUST NOT output any comment, explanation or additional content."""
 Write chapter {chapter_nr} of the story.
 Start from the following idea: {next_step}.
 The chapter MUST conclude with the main event listed for chapter {chapter_nr} in the story plan: {chapter_end}.
-The events of the chapter must unfold in a smooth way, without sudden changes or jumps from one scene to the next."""
+The events of the chapter must unfold in a smooth way, without sudden changes or jumps from one scene to the next.
+Do NOT include elements that are part of the next chapters in the story plan."""
 
         user_prompt = user_prompt_template.format(
             story_plan=json.dumps(story_plan, indent=4),

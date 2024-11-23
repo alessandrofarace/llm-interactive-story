@@ -22,6 +22,7 @@ class Story:
         story_plan: dict | None = None,
         chapters: list[Chapter] | None = None,
         protagonist_description: str | None = None,
+        final_image: Path | None = None,
     ) -> None:
         self.abstract = abstract
         if story_plan is None:
@@ -31,6 +32,7 @@ class Story:
             chapters = []
         self.chapters = chapters
         self.protagonist_description = protagonist_description
+        self.final_image = final_image
 
     def add_chapter(
         self,
@@ -56,12 +58,14 @@ class OpenEndedStory(Story):
         chapters: list[Chapter] | None = None,
         protagonist_description: str | None = None,
         possible_continuations: list[Chapter] | None = None,
+        final_image: Path | None = None,
     ) -> None:
         super().__init__(
             abstract=abstract,
             story_plan=story_plan,
             chapters=chapters,
             protagonist_description=protagonist_description,
+            final_image=final_image,
         )
         if possible_continuations is None:
             possible_continuations = []
