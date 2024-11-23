@@ -77,10 +77,10 @@ def start_story(language: str | None, user_input: str | None) -> None:
     st.session_state.illustrator = FluxClientIllustrator()
     st.session_state.translator = LLMTranslator(language=st.session_state.language)
 
-    if user_input:
+    if user_input != "Suprise me":
         abstract_english = st.session_state.translator.translate_to_english(user_input)
     else:
-        abstract_english = user_input
+        abstract_english = None
 
     st.session_state.story = OpenEndedStory(abstract=abstract_english)
     st.session_state.started = True
@@ -143,6 +143,15 @@ def write_chapter(continuation: Chapter) -> None:
         add_continuations()
     else:
         st.session_state.story.reset_continuations()
+        final_image = st.session_state.illustrator.create_b64_encoded_picture(
+            protagonist_description=st.session_state.story.protagonist_description,
+            scene=chapter,
+        )
+        image_data = b64decode(final_image)
+        image_path = "images/final.png"
+        with open(image_path, "wb") as png:
+            png.write(image_data)
+        st.session_state.story.final_image = image_path
 
 
 def display_chapter(chapter: Chapter) -> None:
@@ -179,6 +188,14 @@ def display_continuations() -> None:
             )
 
 
+def display_final_image() -> None:
+    st.image(
+        st.session_state.story.final_image,
+        "The end",
+        width=512,
+    )
+
+
 if "story" not in st.session_state:
     st.session_state.story = None
 if "language" not in st.session_state:
@@ -208,8 +225,10 @@ if not st.session_state.started:
 
 else:
     if st.session_state.story:
-        for chap_nr, chapter in enumerate(st.session_state.story.chapters):
+        for chapter in st.session_state.story.chapters:
             display_chapter(chapter)
 
         if st.session_state.story.possible_continuations:
             display_continuations()
+        elif st.session_state.story.final_image:
+            display_final_image()
